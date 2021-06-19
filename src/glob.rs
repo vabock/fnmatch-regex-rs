@@ -317,7 +317,11 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                         Ok(State::Alternate(String::new(), gathered))
                     }
                     '}' => match current.is_empty() && gathered.is_empty() {
-                        true => Err(ferror::parse_error("Empty alternation pattern".to_string())),
+                        true => {
+                            push_escaped(&mut res, '{');
+                            push_escaped(&mut res, '}');
+                            Ok(State::Literal)
+                        }
                         false => {
                             gathered.push(current);
                             res.push_str(&close_alternate(gathered));

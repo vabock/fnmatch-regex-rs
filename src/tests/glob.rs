@@ -200,5 +200,12 @@ pub fn test_alternates() -> Result<(), Box<dyn error::Error>> {
         ],
     )?;
 
+    test_pattern(
+        "test_alternates",
+        "whee{} whoo",
+        &["whee{} whoo"],
+        &["whee whoo", "whee{ whoo", "whee} whoo"],
+    )?;
+
     Ok(())
 }
