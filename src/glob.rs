@@ -229,7 +229,10 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                     '-' => Err(ferror::parse_error(
                         "Classes starting with a dash not supported yet".to_string(),
                     )),
-                    ']' => Err(ferror::parse_error("Empty character class".to_string())),
+                    ']' => Ok(State::Class(ClassAccumulator {
+                        negated: false,
+                        items: vec![ClassItem::Char(']')],
+                    })),
                     '\\' => Ok(State::ClassEscape(ClassAccumulator {
                         negated: false,
                         items: Vec::new(),
@@ -240,10 +243,16 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                     })),
                 },
                 State::Class(mut acc) => match chr {
-                    ']' => {
-                        res.push_str(&close_class(acc)?);
-                        Ok(State::Literal)
-                    }
+                    ']' => match acc.items.is_empty() {
+                        true => {
+                            acc.items.push(ClassItem::Char(']'));
+                            Ok(State::Class(acc))
+                        }
+                        false => {
+                            res.push_str(&close_class(acc)?);
+                            Ok(State::Literal)
+                        }
+                    },
                     '-' => match acc.items.pop() {
                         None => Err(ferror::parse_error(
                             "Classes starting with '^-' not supported yet".to_string(),
