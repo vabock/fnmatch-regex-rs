@@ -30,205 +30,147 @@ use std::error;
 
 use crate::glob as fglob;
 
+fn test_pattern(
+    test_name: &str,
+    pattern: &str,
+    expect_ok: &[&str],
+    expect_fail: &[&str],
+) -> Result<(), Box<dyn error::Error>> {
+    let re = fglob::glob_to_regex(pattern)?;
+    println!("{}: {} -> {}", test_name, pattern, re);
+
+    for item in expect_ok {
+        println!("- {} should match", item);
+        assert!(re.is_match(item));
+    }
+
+    for item in expect_fail {
+        println!("- {} should not match", item);
+        assert!(!re.is_match(item));
+    }
+
+    Ok(())
+}
+
 #[test]
 pub fn test_const() -> Result<(), Box<dyn error::Error>> {
-    let re_const = fglob::glob_to_regex("con.st")?;
-    println!("test_const: re_const: {:?}", re_const);
-
-    assert!(re_const.is_match("con.st"));
-
-    assert!(!re_const.is_match("conAst"));
-    assert!(!re_const.is_match("con!st"));
-    assert!(!re_const.is_match("con?st"));
-    assert!(!re_const.is_match("a con.st"));
-    assert!(!re_const.is_match("con.stant"));
-    assert!(!re_const.is_match("a con.stant"));
+    test_pattern(
+        "test_const",
+        "con.st",
+        &["con.st"],
+        &[
+            "conAst",
+            "con!st",
+            "con?st",
+            "a con.st",
+            "con.stant",
+            "a con.stant",
+        ],
+    )?;
 
     Ok(())
 }
 
 #[test]
 pub fn test_wildcards() -> Result<(), Box<dyn error::Error>> {
-    let re_q = fglob::glob_to_regex("this/is/?.test")?;
-    println!("test_wildcards: re_q: {:?}", re_q);
+    test_pattern(
+        "test_wildcards",
+        "this/is/?.test",
+        &[
+            "this/is/a.test",
+            "this/is/b.test",
+            "this/is/?.test",
+            "this/is/*.test",
+        ],
+        &[
+            "this/is/aa.test",
+            "this/is/.test",
+            "this/is/some.test",
+            "this/is/a?.test",
+            "that/is/a.test",
+            "this/is/not/a.test",
+        ],
+    )?;
 
-    assert!(re_q.is_match("this/is/a.test"));
-    assert!(re_q.is_match("this/is/b.test"));
-    assert!(re_q.is_match("this/is/?.test"));
-    assert!(re_q.is_match("this/is/*.test"));
-
-    assert!(!re_q.is_match("this/is/aa.test"));
-    assert!(!re_q.is_match("this/is/.test"));
-    assert!(!re_q.is_match("this/is/some.test"));
-    assert!(!re_q.is_match("this/is/a?.test"));
-    assert!(!re_q.is_match("that/is/a.test"));
-    assert!(!re_q.is_match("this/is/not/a.test"));
-
-    let re_q_mid = fglob::glob_to_regex("a?b")?;
-    println!("test_wildcards: re_q_mid: {:?}", re_q_mid);
-
-    assert!(re_q_mid.is_match("aab"));
-    assert!(re_q_mid.is_match("a.b"));
-    assert!(re_q_mid.is_match("a?b"));
-    assert!(re_q_mid.is_match("a*b"));
-
-    assert!(!re_q_mid.is_match("a/b"));
+    test_pattern(
+        "test_wildcards",
+        "a?b",
+        &["aab", "a.b", "a?b", "a*b"],
+        &["a/b"],
+    )?;
 
     Ok(())
 }
 
 #[test]
 pub fn test_class_simple() -> Result<(), Box<dyn error::Error>> {
-    let re_digit = fglob::glob_to_regex("[0-9]")?;
-    println!("test_class_simple: re_digit: {:?}", re_digit);
+    test_pattern(
+        "test_class_simple",
+        "[0-9]",
+        &["5", "0", "9"],
+        &["50", "", "a", " ", "?", "+", "-", ".", "/"],
+    )?;
 
-    assert!(re_digit.is_match("5"));
-    assert!(re_digit.is_match("0"));
-    assert!(re_digit.is_match("9"));
+    test_pattern(
+        "test_class_simple",
+        "[!0-9]",
+        &["a", " ", "?", "+", "-", "."],
+        &["5", "0", "9", "50", "", "/"],
+    )?;
 
-    assert!(!re_digit.is_match("50"));
-    assert!(!re_digit.is_match(""));
-    assert!(!re_digit.is_match("a"));
-    assert!(!re_digit.is_match(" "));
-    assert!(!re_digit.is_match("?"));
-    assert!(!re_digit.is_match("+"));
-    assert!(!re_digit.is_match("-"));
-    assert!(!re_digit.is_match("."));
-    assert!(!re_digit.is_match("/"));
+    test_pattern(
+        "test_class_simple",
+        "[ab.-9c]",
+        &["5", "0", "9", ".", "a"],
+        &["50", "ab", "a0", "5b", "", " ", "?", "+", "-", "/"],
+    )?;
 
-    let re_digit_neg = fglob::glob_to_regex("[!0-9]")?;
-    println!("test_class_simple: re_digit_neg: {:?}", re_digit_neg);
+    test_pattern(
+        "test_class_simple",
+        "[ab+-9c]",
+        &["5", "0", "9", ".", "a", "+", "-"],
+        &["50", "ab", "a0", "5b", "", " ", "?", "/"],
+    )?;
 
-    assert!(re_digit_neg.is_match("a"));
-    assert!(re_digit_neg.is_match(" "));
-    assert!(re_digit_neg.is_match("?"));
-    assert!(re_digit_neg.is_match("+"));
-    assert!(re_digit_neg.is_match("-"));
-    assert!(re_digit_neg.is_match("."));
+    test_pattern(
+        "test_class_simple",
+        "[ab0-9c-]",
+        &["5", "0", "9", "a", "-"],
+        &["50", "ab", "a0", "5b", "", " ", "+", ".", "?", "/"],
+    )?;
 
-    assert!(!re_digit_neg.is_match("5"));
-    assert!(!re_digit_neg.is_match("0"));
-    assert!(!re_digit_neg.is_match("9"));
-    assert!(!re_digit_neg.is_match("50"));
-    assert!(!re_digit_neg.is_match(""));
-    assert!(!re_digit_neg.is_match("/"));
+    test_pattern(
+        "test_class_simple",
+        "[+a-]",
+        &["+", "a", "-"],
+        &[
+            "50", "ab", "a0", "5b", "5", "0", "9", "", " ", ".", "?", "/",
+        ],
+    )?;
 
-    let re_abc_slash = fglob::glob_to_regex("[ab.-9c]")?;
-    println!("test_class_simple: re_abc_slash: {:?}", re_abc_slash);
-
-    assert!(re_abc_slash.is_match("5"));
-    assert!(re_abc_slash.is_match("0"));
-    assert!(re_abc_slash.is_match("9"));
-    assert!(re_abc_slash.is_match("."));
-    assert!(re_abc_slash.is_match("a"));
-
-    assert!(!re_abc_slash.is_match("50"));
-    assert!(!re_abc_slash.is_match("ab"));
-    assert!(!re_abc_slash.is_match("a0"));
-    assert!(!re_abc_slash.is_match("5b"));
-    assert!(!re_abc_slash.is_match(""));
-    assert!(!re_abc_slash.is_match(" "));
-    assert!(!re_abc_slash.is_match("?"));
-    assert!(!re_abc_slash.is_match("+"));
-    assert!(!re_abc_slash.is_match("-"));
-    assert!(!re_abc_slash.is_match("/"));
-
-    let re_abc_slash = fglob::glob_to_regex("[ab+-9c]")?;
-    println!("test_class_simple: re_abc_slash: {:?}", re_abc_slash);
-
-    assert!(re_abc_slash.is_match("5"));
-    assert!(re_abc_slash.is_match("0"));
-    assert!(re_abc_slash.is_match("9"));
-    assert!(re_abc_slash.is_match("."));
-    assert!(re_abc_slash.is_match("a"));
-    assert!(re_abc_slash.is_match("+"));
-    assert!(re_abc_slash.is_match("-"));
-
-    assert!(!re_abc_slash.is_match("50"));
-    assert!(!re_abc_slash.is_match("ab"));
-    assert!(!re_abc_slash.is_match("a0"));
-    assert!(!re_abc_slash.is_match("5b"));
-    assert!(!re_abc_slash.is_match(""));
-    assert!(!re_abc_slash.is_match(" "));
-    assert!(!re_abc_slash.is_match("?"));
-    assert!(!re_abc_slash.is_match("/"));
-
-    let re_abc_slash = fglob::glob_to_regex("[ab0-9c-]")?;
-    println!("test_class_simple: re_abc_slash: {:?}", re_abc_slash);
-
-    assert!(re_abc_slash.is_match("5"));
-    assert!(re_abc_slash.is_match("0"));
-    assert!(re_abc_slash.is_match("9"));
-    assert!(re_abc_slash.is_match("a"));
-    assert!(re_abc_slash.is_match("-"));
-
-    assert!(!re_abc_slash.is_match("50"));
-    assert!(!re_abc_slash.is_match("ab"));
-    assert!(!re_abc_slash.is_match("a0"));
-    assert!(!re_abc_slash.is_match("5b"));
-    assert!(!re_abc_slash.is_match(""));
-    assert!(!re_abc_slash.is_match(" "));
-    assert!(!re_abc_slash.is_match("+"));
-    assert!(!re_abc_slash.is_match("."));
-    assert!(!re_abc_slash.is_match("?"));
-    assert!(!re_abc_slash.is_match("/"));
-
-    let re_dash = fglob::glob_to_regex("[+a-]")?;
-    println!("test_class_simple: re_dash: {:?}", re_dash);
-
-    assert!(re_dash.is_match("+"));
-    assert!(re_dash.is_match("a"));
-    assert!(re_dash.is_match("-"));
-
-    assert!(!re_dash.is_match("50"));
-    assert!(!re_dash.is_match("ab"));
-    assert!(!re_dash.is_match("a0"));
-    assert!(!re_dash.is_match("5b"));
-    assert!(!re_dash.is_match("5"));
-    assert!(!re_dash.is_match("0"));
-    assert!(!re_dash.is_match("9"));
-    assert!(!re_dash.is_match(""));
-    assert!(!re_dash.is_match(" "));
-    assert!(!re_dash.is_match("."));
-    assert!(!re_dash.is_match("?"));
-    assert!(!re_dash.is_match("/"));
-
-    let re_dash = fglob::glob_to_regex("[0-9-]")?;
-    println!("test_class_simple: re_dash: {:?}", re_dash);
-
-    assert!(re_dash.is_match("-"));
-    assert!(re_dash.is_match("5"));
-    assert!(re_dash.is_match("0"));
-    assert!(re_dash.is_match("9"));
-
-    assert!(!re_dash.is_match("50"));
-    assert!(!re_dash.is_match("ab"));
-    assert!(!re_dash.is_match("a0"));
-    assert!(!re_dash.is_match("5b"));
-    assert!(!re_dash.is_match("a"));
-    assert!(!re_dash.is_match(""));
-    assert!(!re_dash.is_match(" "));
-    assert!(!re_dash.is_match("."));
-    assert!(!re_dash.is_match("?"));
-    assert!(!re_dash.is_match("/"));
-    assert!(!re_dash.is_match("+"));
+    test_pattern(
+        "test_class_simple",
+        "[0-9-]",
+        &["-", "5", "0", "9"],
+        &["50", "ab", "a0", "5b", "a", "", " ", ".", "?", "/", "+"],
+    )?;
 
     Ok(())
 }
 
 #[test]
 pub fn test_alternates() -> Result<(), Box<dyn error::Error>> {
-    let re_alt = fglob::glob_to_regex("look at {th?is,that,...*}")?;
-    println!("test_alternates: re_alt: {:?}", re_alt);
-
-    assert!(re_alt.is_match("look at th?is"));
-    assert!(re_alt.is_match("look at that"));
-    assert!(re_alt.is_match("look at ...*"));
-
-    assert!(!re_alt.is_match("look at this"));
-    assert!(!re_alt.is_match("look at ths"));
-    assert!(!re_alt.is_match("look at "));
-    assert!(!re_alt.is_match("look at that and stuff"));
+    test_pattern(
+        "test_alternates",
+        "look at {th?is,that,...*}",
+        &["look at th?is", "look at that", "look at ...*"],
+        &[
+            "look at this",
+            "look at ths",
+            "look at ",
+            "look at that and stuff",
+        ],
+    )?;
 
     Ok(())
 }
