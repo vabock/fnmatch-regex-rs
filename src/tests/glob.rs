@@ -209,3 +209,48 @@ pub fn test_alternates() -> Result<(), Box<dyn error::Error>> {
 
     Ok(())
 }
+
+#[test]
+pub fn test_escape() -> Result<(), Box<dyn error::Error>> {
+    test_pattern(
+        "test_escape",
+        r"hello\[\]\$\?\.\{\*\}",
+        &["hello[]$?.{*}"],
+        &["hello", "hello[]", "hello$"],
+    )?;
+
+    test_pattern(
+        "test_escape",
+        r"hello\\\b\e\f\n\r\t\v",
+        &["hello\\\x08\x1b\x0c\n\r\t\x0b"],
+        &[r"hello\\\a\b\e\f\n\r\t\v"],
+    )?;
+
+    test_pattern(
+        "test_escape",
+        r"hell[o$\$\-\]]",
+        &["hello", "hell$", "hell]", "hell-", "hell$"],
+        &["hell", "hello-", "hell%"],
+    )?;
+
+    test_pattern(
+        "test_escape",
+        r"hello{\\,\b,\e,\f,\n,\},\],\$,\r,\t,\v}whee",
+        &[
+            "hello\\whee",
+            "hello\x08whee",
+            "hello\x1bwhee",
+            "hello\x0cwhee",
+            "hello\nwhee",
+            "hello\rwhee",
+            "hello\twhee",
+            "hello\x0bwhee",
+            "hello}whee",
+            "hello]whee",
+            "hello$whee",
+        ],
+        &["hello", "hellowhee", "hello whee", "hello?whee"],
+    )?;
+
+    Ok(())
+}

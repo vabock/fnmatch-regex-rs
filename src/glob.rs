@@ -53,6 +53,7 @@ enum State {
     ClassRangeDash(ClassAccumulator),
     ClassEscape(ClassAccumulator),
     Alternate(String, Vec<String>),
+    AlternateEscape(String, Vec<String>),
 }
 
 fn push_escaped_in_class(res: &mut String, chr: char) {
@@ -63,10 +64,28 @@ fn push_escaped_in_class(res: &mut String, chr: char) {
 }
 
 fn push_escaped(res: &mut String, chr: char) {
-    if "[{(|^$.*?+".contains(chr) {
+    if "[{(|^$.*?+\\".contains(chr) {
         res.push('\\');
     }
     res.push(chr);
+}
+
+fn map_letter_escape(chr: char) -> char {
+    match chr {
+        'a' => '\x07',
+        'b' => '\x08',
+        'e' => '\x1b',
+        'f' => '\x0c',
+        'n' => '\x0a',
+        'r' => '\x0d',
+        't' => '\x09',
+        'v' => '\x0b',
+        other => other,
+    }
+}
+
+fn push_escaped_special(res: &mut String, chr: char) {
+    push_escaped(res, map_letter_escape(chr));
 }
 
 fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
@@ -287,6 +306,11 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                         }
                     },
                 },
+                State::ClassEscape(mut acc) => {
+                    let esc = map_letter_escape(chr);
+                    acc.items.push(ClassItem::Char(esc));
+                    Ok(State::Class(acc))
+                }
                 State::ClassRange(mut acc, start) => match chr {
                     '\\' => panic!(
                         "FIXME: handle class range end escape with {:?} start {:?}",
@@ -328,17 +352,27 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                             Ok(State::Literal)
                         }
                     },
-                    '\\' => panic!("FIXME: alternate escape"),
+                    '\\' => Ok(State::AlternateEscape(current, gathered)),
                     '[' => panic!("FIXME: alternate character class"),
                     chr => {
                         current.push(chr);
                         Ok(State::Alternate(current, gathered))
                     }
                 },
-                other => panic!(
-                    "whee handle {:?} char {:?} with accumulated {:?}",
-                    other, chr, res
-                ),
+                State::AlternateEscape(mut current, gathered) => {
+                    let esc = map_letter_escape(chr);
+                    current.push(esc);
+                    Ok(State::Alternate(current, gathered))
+                }
+                State::Escape => {
+                    push_escaped_special(&mut res, chr);
+                    Ok(State::Literal)
+                } /*
+                  other => panic!(
+                      "whee handle {:?} char {:?} with accumulated {:?}",
+                      other, chr, res
+                  ),
+                  */
             }
         },
     )?;
@@ -354,6 +388,8 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
         | State::ClassRange(_, _)
         | State::ClassRangeDash(_)
         | State::ClassEscape(_) => Err(ferror::parse_error("Unclosed character class".to_string())),
-        State::Alternate(_, _) => Err(ferror::parse_error("Unclosed alternation".to_string())),
+        State::Alternate(_, _) | State::AlternateEscape(_, _) => {
+            Err(ferror::parse_error("Unclosed alternation".to_string()))
+        }
     }
 }
