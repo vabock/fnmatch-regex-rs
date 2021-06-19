@@ -226,9 +226,10 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                         negated: true,
                         items: Vec::new(),
                     })),
-                    '-' => Err(ferror::parse_error(
-                        "Classes starting with a dash not supported yet".to_string(),
-                    )),
+                    '-' => Ok(State::Class(ClassAccumulator {
+                        negated: false,
+                        items: vec![ClassItem::Char('-')],
+                    })),
                     ']' => Ok(State::Class(ClassAccumulator {
                         negated: false,
                         items: vec![ClassItem::Char(']')],
@@ -254,9 +255,10 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
                         }
                     },
                     '-' => match acc.items.pop() {
-                        None => Err(ferror::parse_error(
-                            "Classes starting with '^-' not supported yet".to_string(),
-                        )),
+                        None => {
+                            acc.items.push(ClassItem::Char('-'));
+                            Ok(State::Class(acc))
+                        }
                         Some(ClassItem::Range(start, end)) => {
                             acc.items.push(ClassItem::Range(start, end));
                             Ok(State::ClassRangeDash(acc))

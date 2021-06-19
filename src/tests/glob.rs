@@ -169,6 +169,20 @@ pub fn test_class_simple() -> Result<(), Box<dyn error::Error>> {
         &["[]", "[[", "]]", "[[]", "]", "", "/"],
     )?;
 
+    test_pattern(
+        "test_class_simple",
+        "[-a]",
+        &["-", "a"],
+        &["--", "-a", "a-", "aa", " ", ".", "?", "+", "]", "", "/"],
+    )?;
+
+    test_pattern(
+        "test_class_simple",
+        "[!-a]",
+        &[" ", ".", "?", "+", "]"],
+        &["--", "-a", "a-", "aa", "", "-", "a", "/"],
+    )?;
+
     Ok(())
 }
 
