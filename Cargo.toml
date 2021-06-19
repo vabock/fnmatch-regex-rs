@@ -1,0 +1,11 @@
+[package]
+name = "fnmatch-regex"
+version = "0.1.0"
+authors = ["Peter Pentchev <roam@ringlet.net>"]
+edition = "2018"
+
+[lib]
+doctest = false
+
+[dependencies]
+regex = "1"
