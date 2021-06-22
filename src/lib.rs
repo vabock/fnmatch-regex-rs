@@ -1,5 +1,11 @@
 #![warn(missing_docs)]
 //! Various fnmatch- and glob-style handling.
+//!
+//! For the present, this crate only defines a conversion function from
+//! an fnmatch-style glob pattern to a regular expression.
+//!
+//! See the [`glob`] module for more information on
+//! the [`glob_to_regex`] function's usage.
 
 /*
  * Copyright (c) 2021  Peter Pentchev <roam@ringlet.net>

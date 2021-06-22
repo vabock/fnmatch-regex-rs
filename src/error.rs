@@ -3,7 +3,7 @@
 use std::error;
 use std::fmt;
 
-/// An error that occurred during the handling of Apt files.
+/// An error that occurred during the processing of a pattern.
 #[derive(Debug)]
 pub struct Error {
     /// The error message.
@@ -19,12 +19,12 @@ impl fmt::Display for Error {
 impl error::Error for Error {}
 
 impl Error {
-    /// Return an error with the specified kind and message.
+    /// Return an error with the specified message.
     pub fn new(msg: String) -> Self {
         Error { msg }
     }
 
-    /// Return a boxed error with the specified kind and message.
+    /// Return a boxed error with the specified message.
     pub fn boxed(msg: String) -> Box<Self> {
         Box::new(Error { msg })
     }
