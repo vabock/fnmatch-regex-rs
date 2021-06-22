@@ -21,12 +21,12 @@ impl error::Error for Error {}
 impl Error {
     /// Return an error with the specified message.
     pub fn new(msg: String) -> Self {
-        Error { msg }
+        Self { msg }
     }
 
     /// Return a boxed error with the specified message.
     pub fn boxed(msg: String) -> Box<Self> {
-        Box::new(Error { msg })
+        Box::new(Self { msg })
     }
 }
 
