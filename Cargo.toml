@@ -3,6 +3,10 @@ name = "fnmatch-regex"
 version = "0.1.0"
 authors = ["Peter Pentchev <roam@ringlet.net>"]
 edition = "2018"
+description = "Convert a glob-style pattern to a regular expression."
+readme = "README.md"
+repository = "https://gitlab.com/ppentchev/fnmatch-regex-rs"
+license = "BSD-2-Clause"
 
 [dependencies]
 regex = "1"
