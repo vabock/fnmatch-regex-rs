@@ -1,6 +1,6 @@
 # Change log for the fnmatch-regex crate
 
-## 0.1.0 (not yet)
+## 0.1.0 (2021-06-22)
 
 - First public release.
 
