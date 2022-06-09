@@ -269,7 +269,7 @@ fn close_alternate(gathered: Vec<String>) -> String {
 /// See the module-level documentation for a description of the pattern
 /// features supported.
 pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
-    let mut res: String = "^".to_string();
+    let mut res: String = "^".to_owned();
 
     let state =
         pattern

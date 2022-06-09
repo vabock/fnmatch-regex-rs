@@ -34,6 +34,7 @@
  */
 // Activate most of the clippy::restriction lints that we have come across...
 #![warn(clippy::panic)]
+#![warn(clippy::str_to_string)]
 // ...except for these ones.
 #![allow(clippy::implicit_return)]
 
