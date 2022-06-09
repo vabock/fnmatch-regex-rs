@@ -2,7 +2,7 @@
 name = "fnmatch-regex"
 version = "0.2.0"
 authors = ["Peter Pentchev <roam@ringlet.net>"]
-edition = "2018"
+edition = "2021"
 description = "Convert a glob-style pattern to a regular expression."
 readme = "README.md"
 repository = "https://gitlab.com/ppentchev/fnmatch-regex-rs"
