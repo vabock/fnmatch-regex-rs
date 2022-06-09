@@ -10,3 +10,4 @@ license = "BSD-2-Clause"
 
 [dependencies]
 regex = "1"
+quick-error = "2"

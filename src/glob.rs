@@ -84,7 +84,7 @@ use std::error::Error;
 
 use regex::Regex;
 
-use crate::error as ferror;
+use crate::error::Error as FError;
 
 #[derive(Debug)]
 enum ClassItem {
@@ -199,7 +199,7 @@ fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
     }
 }
 
-fn close_class(acc: ClassAccumulator) -> Result<String, Box<dyn Error>> {
+fn close_class(acc: ClassAccumulator) -> String {
     let acc = handle_slash(acc);
     let mut chars_set: HashSet<char> = acc
         .items
@@ -244,7 +244,7 @@ fn close_class(acc: ClassAccumulator) -> Result<String, Box<dyn Error>> {
         res.push('-');
     }
     res.push(']');
-    Ok(res)
+    res
 }
 
 fn close_alternate(gathered: Vec<String>) -> String {
@@ -327,7 +327,7 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
                             Ok(State::Class(acc))
                         }
                         false => {
-                            res.push_str(&close_class(acc)?);
+                            res.push_str(&close_class(acc));
                             Ok(State::Literal)
                         }
                     },
@@ -351,14 +351,13 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
                 State::ClassRangeDash(mut acc) => match chr {
                     ']' => {
                         acc.items.push(ClassItem::Char('-'));
-                        res.push_str(&close_class(acc)?);
+                        res.push_str(&close_class(acc));
                         Ok(State::Literal)
                     }
                     _ => match acc.items.pop() {
-                        Some(ClassItem::Range(start, end)) => Err(ferror::parse_error(format!(
-                            "Range following a {:?}-{:?} range",
-                            start, end
-                        ))),
+                        Some(ClassItem::Range(start, end)) => {
+                            Err(Box::new(FError::RangeAfterRange(start, end)))
+                        }
                         other => {
                             panic!("Internal error: ClassRangeDash items.pop() {:?}", other)
                         }
@@ -377,13 +376,10 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
                     ']' => {
                         acc.items.push(ClassItem::Char(start));
                         acc.items.push(ClassItem::Char('-'));
-                        res.push_str(&close_class(acc)?);
+                        res.push_str(&close_class(acc));
                         Ok(State::Literal)
                     }
-                    end if start > end => Err(ferror::parse_error(format!(
-                        "Reversed range from {:?} to {:?}",
-                        start, end
-                    ))),
+                    end if start > end => Err(Box::new(FError::ReversedRange(start, end))),
                     end if start == end => {
                         acc.items.push(ClassItem::Char(start));
                         Ok(State::Class(acc))
@@ -425,12 +421,7 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
                 State::Escape => {
                     push_escaped_special(&mut res, chr);
                     Ok(State::Literal)
-                } /*
-                  other => panic!(
-                      "whee handle {:?} char {:?} with accumulated {:?}",
-                      other, chr, res
-                  ),
-                  */
+                }
             }
         },
     )?;
@@ -438,16 +429,18 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
     match state {
         State::Literal => {
             res.push('$');
-            Regex::new(&res).map_err(|err| -> Box<dyn Error> { Box::new(err) })
+            Regex::new(&res).map_err(|err| -> Box<dyn Error> {
+                Box::new(FError::InvalidRegex(res, err.to_string()))
+            })
         }
-        State::Escape => Err(ferror::parse_error("Bare escape character".to_string())),
+        State::Escape => Err(Box::new(FError::BareEscape)),
         State::ClassStart
         | State::Class(_)
         | State::ClassRange(_, _)
         | State::ClassRangeDash(_)
-        | State::ClassEscape(_) => Err(ferror::parse_error("Unclosed character class".to_string())),
+        | State::ClassEscape(_) => Err(Box::new(FError::UnclosedClass)),
         State::Alternate(_, _) | State::AlternateEscape(_, _) => {
-            Err(ferror::parse_error("Unclosed alternation".to_string()))
+            Err(Box::new(FError::UnclosedAlternation))
         }
     }
 }

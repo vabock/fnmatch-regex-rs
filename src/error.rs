@@ -26,37 +26,35 @@
  * SUCH DAMAGE.
  */
 
-use std::error;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use quick_error::quick_error;
 
-/// An error that occurred during the processing of a pattern.
-#[derive(Debug)]
-pub struct Error {
-    /// The error message.
-    msg: String,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.msg)
+quick_error! {
+    /// An error that occurred during the processing of a pattern.
+    #[derive(Debug)]
+    pub enum Error {
+        /// A bare escape character at the end of the pattern.
+        BareEscape {
+            display("Bare escape character")
+        }
+        /// The resulting regex was invalid.
+        InvalidRegex(pattern: String, error: String) {
+            display("Could not compile the resulting pattern {:?}: {}", pattern, error)
+        }
+        /// An invalid combination of ranges ([a-b-c]) within a character class.
+        RangeAfterRange(start: char, end: char) {
+            display("Range following a {:?}-{:?} range", start, end)
+        }
+        /// A reversed range within a character class.
+        ReversedRange(start: char, end: char) {
+            display("Reversed range from {:?} to {:?}", start, end)
+        }
+        /// An alternation that was not closed before the end of the pattern.
+        UnclosedAlternation {
+            display("Unclosed alternation")
+        }
+        /// A character class that was not closed before the end of the pattern.
+        UnclosedClass {
+            display("Unclosed character class")
+        }
     }
-}
-
-impl error::Error for Error {}
-
-impl Error {
-    /// Return an error with the specified message.
-    pub fn new(msg: String) -> Self {
-        Self { msg }
-    }
-
-    /// Return a boxed error with the specified message.
-    pub fn boxed(msg: String) -> Box<Self> {
-        Box::new(Self { msg })
-    }
-}
-
-/// Report an error that occurred during the parsing of a pattern.
-pub fn parse_error(msg: String) -> Box<Error> {
-    Error::boxed(msg)
 }
