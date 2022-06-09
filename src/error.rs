@@ -1,7 +1,7 @@
 //! Common error definitions for the fnmatch crate.
 
 /*
- * Copyright (c) 2021  Peter Pentchev <roam@ringlet.net>
+ * Copyright (c) 2021, 2022  Peter Pentchev <roam@ringlet.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,7 @@
  */
 
 use std::error;
-use std::fmt;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// An error that occurred during the processing of a pattern.
 #[derive(Debug)]
@@ -36,8 +36,8 @@ pub struct Error {
     msg: String,
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.msg)
     }
 }

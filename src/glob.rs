@@ -32,9 +32,9 @@
 //! the filesystem.
 //!
 //! ```rust
-//! # use std::error;
+//! # use std::error::Error;
 //!
-//! # fn main() -> Result<(), Box<dyn error::Error>> {
+//! # fn main() -> Result<(), Box<dyn Error>> {
 //! let re_name = fnmatch_regex::glob_to_regex("linux-[0-9]*-{generic,aws}")?;
 //! for name in &[
 //!     "linux-5.2.27b1-generic",
@@ -54,7 +54,7 @@
 //! ```
 
 /*
- * Copyright (c) 2021  Peter Pentchev <roam@ringlet.net>
+ * Copyright (c) 2021, 2022  Peter Pentchev <roam@ringlet.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,7 +80,9 @@
  */
 
 use std::collections::HashSet;
-use std::error;
+use std::error::Error;
+
+use regex::Regex;
 
 use crate::error as ferror;
 
@@ -197,7 +199,7 @@ fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
     }
 }
 
-fn close_class(acc: ClassAccumulator) -> Result<String, Box<dyn error::Error>> {
+fn close_class(acc: ClassAccumulator) -> Result<String, Box<dyn Error>> {
     let acc = handle_slash(acc);
     let mut chars_set: HashSet<char> = acc
         .items
@@ -267,12 +269,12 @@ fn close_alternate(gathered: Vec<String>) -> String {
 ///
 /// See the module-level documentation for a description of the pattern
 /// features supported.
-pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error>> {
+pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
     let mut res: String = "^".to_string();
 
     let state = pattern.chars().try_fold(
         State::Literal,
-        |state, chr| -> Result<State, Box<dyn error::Error>> {
+        |state, chr| -> Result<State, Box<dyn Error>> {
             match state {
                 State::Literal => match chr {
                     '\\' => Ok(State::Escape),
@@ -436,7 +438,7 @@ pub fn glob_to_regex(pattern: &str) -> Result<regex::Regex, Box<dyn error::Error
     match state {
         State::Literal => {
             res.push('$');
-            regex::Regex::new(&res).map_err(|err| -> Box<dyn error::Error> { Box::new(err) })
+            Regex::new(&res).map_err(|err| -> Box<dyn Error> { Box::new(err) })
         }
         State::Escape => Err(ferror::parse_error("Bare escape character".to_string())),
         State::ClassStart

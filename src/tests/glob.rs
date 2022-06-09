@@ -1,7 +1,7 @@
 //! Test the shell glob matching functionality.
 
 /*
- * Copyright (c) 2021  Peter Pentchev <roam@ringlet.net>
+ * Copyright (c) 2021, 2022  Peter Pentchev <roam@ringlet.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-use std::error;
+use std::error::Error;
 
 use crate::glob as fglob;
 
@@ -35,7 +35,7 @@ fn test_pattern(
     pattern: &str,
     expect_ok: &[&str],
     expect_fail: &[&str],
-) -> Result<(), Box<dyn error::Error>> {
+) -> Result<(), Box<dyn Error>> {
     let re = fglob::glob_to_regex(pattern)?;
     println!("{}: {} -> {}", test_name, pattern, re);
 
@@ -53,7 +53,7 @@ fn test_pattern(
 }
 
 #[test]
-pub fn test_const() -> Result<(), Box<dyn error::Error>> {
+pub fn test_const() -> Result<(), Box<dyn Error>> {
     test_pattern(
         "test_const",
         "con.st",
@@ -72,7 +72,7 @@ pub fn test_const() -> Result<(), Box<dyn error::Error>> {
 }
 
 #[test]
-pub fn test_wildcards() -> Result<(), Box<dyn error::Error>> {
+pub fn test_wildcards() -> Result<(), Box<dyn Error>> {
     test_pattern(
         "test_wildcards",
         "this/is/?.test",
@@ -103,7 +103,7 @@ pub fn test_wildcards() -> Result<(), Box<dyn error::Error>> {
 }
 
 #[test]
-pub fn test_class_simple() -> Result<(), Box<dyn error::Error>> {
+pub fn test_class_simple() -> Result<(), Box<dyn Error>> {
     test_pattern(
         "test_class_simple",
         "[0-9]",
@@ -187,7 +187,7 @@ pub fn test_class_simple() -> Result<(), Box<dyn error::Error>> {
 }
 
 #[test]
-pub fn test_alternates() -> Result<(), Box<dyn error::Error>> {
+pub fn test_alternates() -> Result<(), Box<dyn Error>> {
     test_pattern(
         "test_alternates",
         "look at {th?is,that,...*}",
@@ -211,7 +211,7 @@ pub fn test_alternates() -> Result<(), Box<dyn error::Error>> {
 }
 
 #[test]
-pub fn test_escape() -> Result<(), Box<dyn error::Error>> {
+pub fn test_escape() -> Result<(), Box<dyn Error>> {
     test_pattern(
         "test_escape",
         r"hello\[\]\$\?\.\{\*\}",
