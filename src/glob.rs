@@ -80,7 +80,6 @@
  */
 
 use std::collections::HashSet;
-use std::error::Error;
 
 use regex::Regex;
 
@@ -269,178 +268,174 @@ fn close_alternate(gathered: Vec<String>) -> String {
 ///
 /// See the module-level documentation for a description of the pattern
 /// features supported.
-pub fn glob_to_regex(pattern: &str) -> Result<Regex, Box<dyn Error>> {
+pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
     let mut res: String = "^".to_string();
 
-    let state = pattern.chars().try_fold(
-        State::Literal,
-        |state, chr| -> Result<State, Box<dyn Error>> {
-            match state {
-                State::Literal => match chr {
-                    '\\' => Ok(State::Escape),
-                    '[' => Ok(State::ClassStart),
-                    '{' => Ok(State::Alternate(String::new(), Vec::new())),
-                    '?' => {
-                        res.push_str("[^/]");
-                        Ok(state)
-                    }
-                    '*' => {
-                        res.push_str(".*");
-                        Ok(state)
-                    }
-                    ']' | '}' | '.' => {
-                        res.push('\\');
-                        res.push(chr);
-                        Ok(state)
-                    }
-                    other => {
-                        res.push(other);
-                        Ok(state)
-                    }
-                },
-                State::ClassStart => match chr {
-                    '!' => Ok(State::Class(ClassAccumulator {
-                        negated: true,
-                        items: Vec::new(),
-                    })),
-                    '-' => Ok(State::Class(ClassAccumulator {
-                        negated: false,
-                        items: vec![ClassItem::Char('-')],
-                    })),
-                    ']' => Ok(State::Class(ClassAccumulator {
-                        negated: false,
-                        items: vec![ClassItem::Char(']')],
-                    })),
-                    '\\' => Ok(State::ClassEscape(ClassAccumulator {
-                        negated: false,
-                        items: Vec::new(),
-                    })),
-                    other => Ok(State::Class(ClassAccumulator {
-                        negated: false,
-                        items: vec![ClassItem::Char(other)],
-                    })),
-                },
-                State::Class(mut acc) => match chr {
-                    ']' => match acc.items.is_empty() {
-                        true => {
-                            acc.items.push(ClassItem::Char(']'));
+    let state =
+        pattern
+            .chars()
+            .try_fold(State::Literal, |state, chr| -> Result<State, FError> {
+                match state {
+                    State::Literal => match chr {
+                        '\\' => Ok(State::Escape),
+                        '[' => Ok(State::ClassStart),
+                        '{' => Ok(State::Alternate(String::new(), Vec::new())),
+                        '?' => {
+                            res.push_str("[^/]");
+                            Ok(state)
+                        }
+                        '*' => {
+                            res.push_str(".*");
+                            Ok(state)
+                        }
+                        ']' | '}' | '.' => {
+                            res.push('\\');
+                            res.push(chr);
+                            Ok(state)
+                        }
+                        other => {
+                            res.push(other);
+                            Ok(state)
+                        }
+                    },
+                    State::ClassStart => match chr {
+                        '!' => Ok(State::Class(ClassAccumulator {
+                            negated: true,
+                            items: Vec::new(),
+                        })),
+                        '-' => Ok(State::Class(ClassAccumulator {
+                            negated: false,
+                            items: vec![ClassItem::Char('-')],
+                        })),
+                        ']' => Ok(State::Class(ClassAccumulator {
+                            negated: false,
+                            items: vec![ClassItem::Char(']')],
+                        })),
+                        '\\' => Ok(State::ClassEscape(ClassAccumulator {
+                            negated: false,
+                            items: Vec::new(),
+                        })),
+                        other => Ok(State::Class(ClassAccumulator {
+                            negated: false,
+                            items: vec![ClassItem::Char(other)],
+                        })),
+                    },
+                    State::Class(mut acc) => match chr {
+                        ']' => match acc.items.is_empty() {
+                            true => {
+                                acc.items.push(ClassItem::Char(']'));
+                                Ok(State::Class(acc))
+                            }
+                            false => {
+                                res.push_str(&close_class(acc));
+                                Ok(State::Literal)
+                            }
+                        },
+                        '-' => match acc.items.pop() {
+                            None => {
+                                acc.items.push(ClassItem::Char('-'));
+                                Ok(State::Class(acc))
+                            }
+                            Some(ClassItem::Range(start, end)) => {
+                                acc.items.push(ClassItem::Range(start, end));
+                                Ok(State::ClassRangeDash(acc))
+                            }
+                            Some(ClassItem::Char(start)) => Ok(State::ClassRange(acc, start)),
+                        },
+                        '\\' => Ok(State::ClassEscape(acc)),
+                        other => {
+                            acc.items.push(ClassItem::Char(other));
                             Ok(State::Class(acc))
                         }
-                        false => {
+                    },
+                    State::ClassRangeDash(mut acc) => match chr {
+                        ']' => {
+                            acc.items.push(ClassItem::Char('-'));
                             res.push_str(&close_class(acc));
                             Ok(State::Literal)
                         }
+                        _ => match acc.items.pop() {
+                            Some(ClassItem::Range(start, end)) => {
+                                Err(FError::RangeAfterRange(start, end))
+                            }
+                            other => {
+                                panic!("Internal error: ClassRangeDash items.pop() {:?}", other)
+                            }
+                        },
                     },
-                    '-' => match acc.items.pop() {
-                        None => {
+                    State::ClassEscape(mut acc) => {
+                        let esc = map_letter_escape(chr);
+                        acc.items.push(ClassItem::Char(esc));
+                        Ok(State::Class(acc))
+                    }
+                    State::ClassRange(mut acc, start) => match chr {
+                        '\\' => panic!(
+                            "FIXME: handle class range end escape with {:?} start {:?}",
+                            acc, start
+                        ),
+                        ']' => {
+                            acc.items.push(ClassItem::Char(start));
                             acc.items.push(ClassItem::Char('-'));
+                            res.push_str(&close_class(acc));
+                            Ok(State::Literal)
+                        }
+                        end if start > end => Err(FError::ReversedRange(start, end)),
+                        end if start == end => {
+                            acc.items.push(ClassItem::Char(start));
                             Ok(State::Class(acc))
                         }
-                        Some(ClassItem::Range(start, end)) => {
+                        end => {
                             acc.items.push(ClassItem::Range(start, end));
-                            Ok(State::ClassRangeDash(acc))
-                        }
-                        Some(ClassItem::Char(start)) => Ok(State::ClassRange(acc, start)),
-                    },
-                    '\\' => Ok(State::ClassEscape(acc)),
-                    other => {
-                        acc.items.push(ClassItem::Char(other));
-                        Ok(State::Class(acc))
-                    }
-                },
-                State::ClassRangeDash(mut acc) => match chr {
-                    ']' => {
-                        acc.items.push(ClassItem::Char('-'));
-                        res.push_str(&close_class(acc));
-                        Ok(State::Literal)
-                    }
-                    _ => match acc.items.pop() {
-                        Some(ClassItem::Range(start, end)) => {
-                            Err(Box::new(FError::RangeAfterRange(start, end)))
-                        }
-                        other => {
-                            panic!("Internal error: ClassRangeDash items.pop() {:?}", other)
+                            Ok(State::Class(acc))
                         }
                     },
-                },
-                State::ClassEscape(mut acc) => {
-                    let esc = map_letter_escape(chr);
-                    acc.items.push(ClassItem::Char(esc));
-                    Ok(State::Class(acc))
-                }
-                State::ClassRange(mut acc, start) => match chr {
-                    '\\' => panic!(
-                        "FIXME: handle class range end escape with {:?} start {:?}",
-                        acc, start
-                    ),
-                    ']' => {
-                        acc.items.push(ClassItem::Char(start));
-                        acc.items.push(ClassItem::Char('-'));
-                        res.push_str(&close_class(acc));
-                        Ok(State::Literal)
-                    }
-                    end if start > end => Err(Box::new(FError::ReversedRange(start, end))),
-                    end if start == end => {
-                        acc.items.push(ClassItem::Char(start));
-                        Ok(State::Class(acc))
-                    }
-                    end => {
-                        acc.items.push(ClassItem::Range(start, end));
-                        Ok(State::Class(acc))
-                    }
-                },
-                State::Alternate(mut current, mut gathered) => match chr {
-                    ',' => {
-                        gathered.push(current);
-                        Ok(State::Alternate(String::new(), gathered))
-                    }
-                    '}' => match current.is_empty() && gathered.is_empty() {
-                        true => {
-                            push_escaped(&mut res, '{');
-                            push_escaped(&mut res, '}');
-                            Ok(State::Literal)
-                        }
-                        false => {
+                    State::Alternate(mut current, mut gathered) => match chr {
+                        ',' => {
                             gathered.push(current);
-                            res.push_str(&close_alternate(gathered));
-                            Ok(State::Literal)
+                            Ok(State::Alternate(String::new(), gathered))
+                        }
+                        '}' => match current.is_empty() && gathered.is_empty() {
+                            true => {
+                                push_escaped(&mut res, '{');
+                                push_escaped(&mut res, '}');
+                                Ok(State::Literal)
+                            }
+                            false => {
+                                gathered.push(current);
+                                res.push_str(&close_alternate(gathered));
+                                Ok(State::Literal)
+                            }
+                        },
+                        '\\' => Ok(State::AlternateEscape(current, gathered)),
+                        '[' => panic!("FIXME: alternate character class"),
+                        chr => {
+                            current.push(chr);
+                            Ok(State::Alternate(current, gathered))
                         }
                     },
-                    '\\' => Ok(State::AlternateEscape(current, gathered)),
-                    '[' => panic!("FIXME: alternate character class"),
-                    chr => {
-                        current.push(chr);
+                    State::AlternateEscape(mut current, gathered) => {
+                        let esc = map_letter_escape(chr);
+                        current.push(esc);
                         Ok(State::Alternate(current, gathered))
                     }
-                },
-                State::AlternateEscape(mut current, gathered) => {
-                    let esc = map_letter_escape(chr);
-                    current.push(esc);
-                    Ok(State::Alternate(current, gathered))
+                    State::Escape => {
+                        push_escaped_special(&mut res, chr);
+                        Ok(State::Literal)
+                    }
                 }
-                State::Escape => {
-                    push_escaped_special(&mut res, chr);
-                    Ok(State::Literal)
-                }
-            }
-        },
-    )?;
+            })?;
 
     match state {
         State::Literal => {
             res.push('$');
-            Regex::new(&res).map_err(|err| -> Box<dyn Error> {
-                Box::new(FError::InvalidRegex(res, err.to_string()))
-            })
+            Regex::new(&res).map_err(|err| FError::InvalidRegex(res, err.to_string()))
         }
-        State::Escape => Err(Box::new(FError::BareEscape)),
+        State::Escape => Err(FError::BareEscape),
         State::ClassStart
         | State::Class(_)
         | State::ClassRange(_, _)
         | State::ClassRangeDash(_)
-        | State::ClassEscape(_) => Err(Box::new(FError::UnclosedClass)),
-        State::Alternate(_, _) | State::AlternateEscape(_, _) => {
-            Err(Box::new(FError::UnclosedAlternation))
-        }
+        | State::ClassEscape(_) => Err(FError::UnclosedClass),
+        State::Alternate(_, _) | State::AlternateEscape(_, _) => Err(FError::UnclosedAlternation),
     }
 }
