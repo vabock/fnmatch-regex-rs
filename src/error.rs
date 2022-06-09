@@ -40,6 +40,10 @@ quick_error! {
         InvalidRegex(pattern: String, error: String) {
             display("Could not compile the resulting pattern {:?}: {}", pattern, error)
         }
+        /// Some known missing functionality.
+        NotImplemented(message: String) {
+            display("Not implemented yet: {}", message)
+        }
         /// An invalid combination of ranges ([a-b-c]) within a character class.
         RangeAfterRange(start: char, end: char) {
             display("Range following a {:?}-{:?} range", start, end)

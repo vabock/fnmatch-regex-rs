@@ -8,7 +8,7 @@
 //! the [`glob_to_regex`] function's usage.
 
 /*
- * Copyright (c) 2021  Peter Pentchev <roam@ringlet.net>
+ * Copyright (c) 2021, 2022  Peter Pentchev <roam@ringlet.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,10 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+// Activate most of the clippy::restriction lints that we have come across...
+#![warn(clippy::panic)]
+// ...except for these ones.
+#![allow(clippy::implicit_return)]
 
 pub mod error;
 pub mod glob;

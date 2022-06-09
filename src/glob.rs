@@ -358,9 +358,10 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
                             Some(ClassItem::Range(start, end)) => {
                                 Err(FError::RangeAfterRange(start, end))
                             }
-                            other => {
-                                panic!("Internal error: ClassRangeDash items.pop() {:?}", other)
-                            }
+                            other => Err(FError::NotImplemented(format!(
+                                "ClassRangeDash items.pop() {:?}",
+                                other
+                            ))),
                         },
                     },
                     State::ClassEscape(mut acc) => {
@@ -369,10 +370,10 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
                         Ok(State::Class(acc))
                     }
                     State::ClassRange(mut acc, start) => match chr {
-                        '\\' => panic!(
+                        '\\' => Err(FError::NotImplemented(format!(
                             "FIXME: handle class range end escape with {:?} start {:?}",
                             acc, start
-                        ),
+                        ))),
                         ']' => {
                             acc.items.push(ClassItem::Char(start));
                             acc.items.push(ClassItem::Char('-'));
@@ -407,7 +408,9 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
                             }
                         },
                         '\\' => Ok(State::AlternateEscape(current, gathered)),
-                        '[' => panic!("FIXME: alternate character class"),
+                        '[' => Err(FError::NotImplemented(
+                            "FIXME: alternate character class".to_owned(),
+                        )),
                         chr => {
                             current.push(chr);
                             Ok(State::Alternate(current, gathered))
