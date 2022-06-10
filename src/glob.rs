@@ -178,34 +178,63 @@ fn push_escaped_special(res: &mut String, chr: char) {
     push_escaped(res, map_letter_escape(chr));
 }
 
+/// Remove a slash from characters and classes.
+struct ExcIter<I>
+where
+    I: Iterator<Item = ClassItem>,
+{
+    /// The items to remove slashes from.
+    it: I,
+    /// Do we have it? Do we? Do we?
+    saved: Option<ClassItem>,
+}
+
+impl<I> Iterator for ExcIter<I>
+where
+    I: Iterator<Item = ClassItem>,
+{
+    type Item = ClassItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.saved.take().or_else(|| {
+            self.it.next().and_then(|cls| match cls {
+                ClassItem::Char('/') => self.next(),
+                ClassItem::Char(_) => Some(cls),
+                ClassItem::Range('.', '/') => Some(ClassItem::Char('.')),
+                ClassItem::Range(start, '/') => Some(ClassItem::Range(start, '.')),
+                ClassItem::Range('/', '0') => Some(ClassItem::Char('0')),
+                ClassItem::Range('/', end) => Some(ClassItem::Range('0', end)),
+                ClassItem::Range(start, end) if start > '/' || end < '/' => Some(cls),
+                ClassItem::Range(start, end) => {
+                    let first = if start == '.' {
+                        ClassItem::Char('.')
+                    } else {
+                        ClassItem::Range(start, '.')
+                    };
+                    let second = if end == '0' {
+                        ClassItem::Char('0')
+                    } else {
+                        ClassItem::Range('0', end)
+                    };
+                    self.saved = Some(second);
+                    Some(first)
+                }
+            })
+        })
+    }
+}
+
 /// Exclude the slash character from classes that would include it.
 fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
     assert!(!acc.negated);
-    let mut res: Vec<ClassItem> = Vec::new();
-    for cls in acc.items {
-        match cls {
-            ClassItem::Char('/') => (),
-            ClassItem::Char(_) => res.push(cls),
-            ClassItem::Range('.', '/') => res.push(ClassItem::Char('.')),
-            ClassItem::Range(start, '/') => res.push(ClassItem::Range(start, '.')),
-            ClassItem::Range('/', '0') => res.push(ClassItem::Char('0')),
-            ClassItem::Range('/', end) => res.push(ClassItem::Range('0', end)),
-            ClassItem::Range(start, end) if start > '/' || end < '/' => res.push(cls),
-            ClassItem::Range(start, end) => {
-                if start == '.' {
-                    res.push(ClassItem::Char('.'));
-                } else {
-                    res.push(ClassItem::Range(start, '.'));
-                }
-                if end == '0' {
-                    res.push(ClassItem::Char('0'));
-                } else {
-                    res.push(ClassItem::Range('0', end));
-                }
-            }
+    ClassAccumulator {
+        items: ExcIter {
+            it: acc.items.into_iter(),
+            saved: None,
         }
+        .collect(),
+        ..acc
     }
-    ClassAccumulator { items: res, ..acc }
 }
 
 /// Make sure a character class will match a slash.
