@@ -198,10 +198,10 @@ fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
 /// Make sure a character class will match a slash.
 fn handle_slash_include(acc: ClassAccumulator) -> ClassAccumulator {
     assert!(acc.negated);
-    let slash_found = acc.items.iter().any(|item| match item {
+    let slash_found = acc.items.iter().any(|item| match *item {
         ClassItem::Char('/') => true,
         ClassItem::Char(_) => false,
-        ClassItem::Range(start, end) => *start <= '/' && *end >= '/',
+        ClassItem::Range(start, end) => start <= '/' && end >= '/',
     });
     match slash_found {
         true => acc,
@@ -235,8 +235,8 @@ fn close_class(acc: ClassAccumulator) -> String {
     let mut chars_set: HashSet<char> = acc
         .items
         .iter()
-        .filter_map(|item| match item {
-            ClassItem::Char(chr) => Some(*chr),
+        .filter_map(|item| match *item {
+            ClassItem::Char(chr) => Some(chr),
             ClassItem::Range(_, _) => None,
         })
         .collect();
@@ -245,9 +245,9 @@ fn close_class(acc: ClassAccumulator) -> String {
     let mut classes: Vec<(char, char)> = acc
         .items
         .iter()
-        .filter_map(|item| match item {
+        .filter_map(|item| match *item {
             ClassItem::Char(_) => None,
-            ClassItem::Range(start, end) => Some((*start, *end)),
+            ClassItem::Range(start, end) => Some((start, end)),
         })
         .collect::<HashSet<(char, char)>>()
         .into_iter()
