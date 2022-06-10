@@ -51,6 +51,8 @@
 #![warn(clippy::too_many_lines)]
 #![warn(clippy::unnecessary_wraps)]
 #![warn(clippy::unreachable)]
+// ...except for these ones.
+#![allow(clippy::module_name_repetitions)]
 
 pub mod error;
 pub mod glob;
