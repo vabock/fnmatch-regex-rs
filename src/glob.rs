@@ -230,8 +230,8 @@ fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
 /// Make sure none of the classes will allow a slash to be matched in
 /// a filename, make sure the dash is at the end of the regular expression
 /// class pattern (e.g. `[A-Za-z0-9-]`), sort the characters and the classes.
-fn close_class(acc: ClassAccumulator) -> String {
-    let acc = handle_slash(acc);
+fn close_class(glob_acc: ClassAccumulator) -> String {
+    let acc = handle_slash(glob_acc);
     let mut chars_set: HashSet<char> = acc
         .items
         .iter()
@@ -445,8 +445,8 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
                         '[' => Err(FError::NotImplemented(
                             "FIXME: alternate character class".to_owned(),
                         )),
-                        chr => {
-                            current.push(chr);
+                        other => {
+                            current.push(other);
                             Ok(State::Alternate(current, gathered))
                         }
                     },

@@ -38,6 +38,8 @@
 #![warn(clippy::missing_inline_in_public_items)]
 #![warn(clippy::panic)]
 #![warn(clippy::pattern_type_mismatch)]
+#![warn(clippy::shadow_reuse)]
+#![warn(clippy::shadow_same)]
 #![warn(clippy::str_to_string)]
 // ...except for these ones.
 #![allow(clippy::implicit_return)]
