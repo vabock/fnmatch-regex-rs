@@ -60,8 +60,6 @@
 pub mod error;
 pub mod glob;
 
-mod try_flatten;
-
 pub use glob::glob_to_regex;
 
 #[cfg(test)]
