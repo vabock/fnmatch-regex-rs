@@ -47,6 +47,10 @@
 #![warn(clippy::explicit_into_iter_loop)]
 #![warn(clippy::match_bool)]
 #![warn(clippy::missing_errors_doc)]
+#![warn(clippy::panic_in_result_fn)]
+#![warn(clippy::too_many_lines)]
+#![warn(clippy::unnecessary_wraps)]
+#![warn(clippy::unreachable)]
 
 pub mod error;
 pub mod glob;
