@@ -46,6 +46,7 @@
 // Activate most of the clippy::pedantic lints that we have come across...
 #![warn(clippy::explicit_into_iter_loop)]
 #![warn(clippy::match_bool)]
+#![warn(clippy::missing_errors_doc)]
 
 pub mod error;
 pub mod glob;
