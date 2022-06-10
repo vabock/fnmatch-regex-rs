@@ -203,16 +203,17 @@ fn handle_slash_include(acc: ClassAccumulator) -> ClassAccumulator {
         ClassItem::Char(_) => false,
         ClassItem::Range(start, end) => start <= '/' && end >= '/',
     });
-    match slash_found {
-        true => acc,
-        false => ClassAccumulator {
+    if slash_found {
+        acc
+    } else {
+        ClassAccumulator {
             items: acc
                 .items
                 .into_iter()
                 .chain(vec![ClassItem::Char('/')].into_iter())
                 .collect(),
             ..acc
-        },
+        }
     }
 }
 
@@ -220,9 +221,10 @@ fn handle_slash_include(acc: ClassAccumulator) -> ClassAccumulator {
 /// Thus, make sure that a negated character class will include the slash
 /// character and that a non-negated one will not include it.
 fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
-    match acc.negated {
-        false => handle_slash_exclude(acc),
-        true => handle_slash_include(acc),
+    if acc.negated {
+        handle_slash_include(acc)
+    } else {
+        handle_slash_exclude(acc)
     }
 }
 
@@ -256,13 +258,7 @@ fn close_class(glob_acc: ClassAccumulator) -> String {
     chars.sort_unstable();
     classes.sort_unstable();
 
-    let mut res = format!(
-        "[{}",
-        match acc.negated {
-            true => "^",
-            false => "",
-        }
-    );
+    let mut res = format!("[{}", if acc.negated { "^" } else { "" });
     for chr in chars.into_iter() {
         push_escaped_in_class(&mut res, chr);
     }
@@ -355,16 +351,15 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
                         })),
                     },
                     State::Class(mut acc) => match chr {
-                        ']' => match acc.items.is_empty() {
-                            true => {
+                        ']' => {
+                            if acc.items.is_empty() {
                                 acc.items.push(ClassItem::Char(']'));
                                 Ok(State::Class(acc))
-                            }
-                            false => {
+                            } else {
                                 res.push_str(&close_class(acc));
                                 Ok(State::Literal)
                             }
-                        },
+                        }
                         '-' => match acc.items.pop() {
                             None => {
                                 acc.items.push(ClassItem::Char('-'));
@@ -429,18 +424,17 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
                             gathered.push(current);
                             Ok(State::Alternate(String::new(), gathered))
                         }
-                        '}' => match current.is_empty() && gathered.is_empty() {
-                            true => {
+                        '}' => {
+                            if current.is_empty() && gathered.is_empty() {
                                 push_escaped(&mut res, '{');
                                 push_escaped(&mut res, '}');
                                 Ok(State::Literal)
-                            }
-                            false => {
+                            } else {
                                 gathered.push(current);
                                 res.push_str(&close_alternate(gathered));
                                 Ok(State::Literal)
                             }
-                        },
+                        }
                         '\\' => Ok(State::AlternateEscape(current, gathered)),
                         '[' => Err(FError::NotImplemented(
                             "FIXME: alternate character class".to_owned(),

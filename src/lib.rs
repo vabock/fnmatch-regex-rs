@@ -43,6 +43,8 @@
 #![warn(clippy::str_to_string)]
 // ...except for these ones.
 #![allow(clippy::implicit_return)]
+// Activate most of the clippy::pedantic lints that we have come across...
+#![warn(clippy::match_bool)]
 
 pub mod error;
 pub mod glob;
