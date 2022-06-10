@@ -301,6 +301,7 @@ fn close_alternate(gathered: Vec<String>) -> String {
 ///
 /// See the module-level documentation for a description of the pattern
 /// features supported.
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
     let mut res: String = "^".to_owned();
 
