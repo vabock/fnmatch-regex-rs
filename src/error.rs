@@ -31,6 +31,7 @@ use quick_error::quick_error;
 quick_error! {
     /// An error that occurred during the processing of a pattern.
     #[derive(Debug)]
+    #[non_exhaustive]
     pub enum Error {
         /// A bare escape character at the end of the pattern.
         BareEscape {

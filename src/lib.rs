@@ -33,6 +33,7 @@
  * SUCH DAMAGE.
  */
 // Activate most of the clippy::restriction lints that we have come across...
+#![warn(clippy::exhaustive_enums)]
 #![warn(clippy::missing_docs_in_private_items)]
 #![warn(clippy::missing_inline_in_public_items)]
 #![warn(clippy::panic)]
