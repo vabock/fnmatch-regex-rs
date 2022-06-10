@@ -85,6 +85,7 @@ use std::mem;
 use regex::Regex;
 
 use crate::error::Error as FError;
+use crate::try_flatten::TryFlatten;
 
 /// Something that may appear in a character class.
 #[derive(Debug)]
@@ -594,11 +595,9 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
         pattern: pattern.chars(),
         state: State::Start,
     };
-    let pattern_results: Vec<Option<String>> = parser.collect::<Result<_, _>>()?;
-    let re_pattern = pattern_results
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
+    let re_pattern = parser
+        .try_flatten()
+        .collect::<Result<Vec<_>, _>>()?
         .join("");
     Regex::new(&re_pattern).map_err(|err| FError::InvalidRegex(re_pattern, err.to_string()))
 }
