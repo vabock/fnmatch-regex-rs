@@ -535,11 +535,10 @@ where
                     Ok(None)
                 }
                 '}' => {
+                    self.state = State::Literal;
                     if current.is_empty() && gathered.is_empty() {
-                        self.state = State::Literal;
                         Ok(Some(r"\{\}".to_owned()))
                     } else {
-                        self.state = State::Literal;
                         gathered.push(current);
                         Ok(Some(close_alternate(gathered)))
                     }
