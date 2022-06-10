@@ -44,6 +44,7 @@
 // ...except for these ones.
 #![allow(clippy::implicit_return)]
 // Activate most of the clippy::pedantic lints that we have come across...
+#![warn(clippy::explicit_into_iter_loop)]
 #![warn(clippy::match_bool)]
 
 pub mod error;

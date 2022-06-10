@@ -169,7 +169,7 @@ fn push_escaped_special(res: &mut String, chr: char) {
 fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
     assert!(!acc.negated);
     let mut res: Vec<ClassItem> = Vec::new();
-    for cls in acc.items.into_iter() {
+    for cls in acc.items {
         match cls {
             ClassItem::Char('/') => (),
             ClassItem::Char(_) => res.push(cls),
@@ -259,7 +259,7 @@ fn close_class(glob_acc: ClassAccumulator) -> String {
     classes.sort_unstable();
 
     let mut res = format!("[{}", if acc.negated { "^" } else { "" });
-    for chr in chars.into_iter() {
+    for chr in chars {
         push_escaped_in_class(&mut res, chr);
     }
     for cls in &classes {
