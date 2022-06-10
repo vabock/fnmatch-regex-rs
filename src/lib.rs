@@ -53,6 +53,8 @@
 #![warn(clippy::unreachable)]
 // ...except for these ones.
 #![allow(clippy::module_name_repetitions)]
+// Activate most of the clippy::nursery lints that we have come across...
+#![warn(clippy::missing_const_for_fn)]
 
 pub mod error;
 pub mod glob;

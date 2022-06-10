@@ -161,7 +161,7 @@ fn escape(chr: char) -> String {
 }
 
 /// Interpret an escaped character: return the one that was meant.
-fn map_letter_escape(chr: char) -> char {
+const fn map_letter_escape(chr: char) -> char {
     match chr {
         'a' => '\x07',
         'b' => '\x08',
