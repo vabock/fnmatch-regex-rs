@@ -152,11 +152,12 @@ fn escape_in_class(chr: char) -> String {
 }
 
 /// Escape a character outside of a character class if necessary.
-fn push_escaped(res: &mut String, chr: char) {
+fn escape(chr: char) -> String {
     if "[{(|^$.*?+\\".contains(chr) {
-        res.push('\\');
+        format!("\\{}", chr)
+    } else {
+        chr.to_string()
     }
-    res.push(chr);
 }
 
 /// Interpret an escaped character: return the one that was meant.
@@ -175,8 +176,8 @@ fn map_letter_escape(chr: char) -> char {
 }
 
 /// Unescape a character and escape it if needed.
-fn push_escaped_special(res: &mut String, chr: char) {
-    push_escaped(res, map_letter_escape(chr));
+fn escape_special(chr: char) -> String {
+    escape(map_letter_escape(chr))
 }
 
 /// Remove a slash from characters and classes.
@@ -323,13 +324,7 @@ fn close_alternate(gathered: Vec<String>) -> String {
         .into_iter()
         .collect::<HashSet<String>>()
         .into_iter()
-        .map(|item| {
-            let mut res = String::new();
-            for chr in item.chars() {
-                push_escaped(&mut res, chr);
-            }
-            res
-        })
+        .map(|item| item.chars().map(escape).collect())
         .collect();
     items.sort_unstable();
 
@@ -384,11 +379,8 @@ where
     fn handle_escape(&mut self) -> StringResult {
         match self.pattern.next() {
             Some(chr) => {
-                // FIXME: unpush
-                let mut res: String = "".to_owned();
-                push_escaped_special(&mut res, chr);
                 self.state = State::Literal;
-                Ok(Some(res))
+                Ok(Some(escape_special(chr)))
             }
             None => Err(FError::BareEscape),
         }
