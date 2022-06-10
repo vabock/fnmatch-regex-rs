@@ -85,31 +85,51 @@ use regex::Regex;
 
 use crate::error::Error as FError;
 
+/// Something that may appear in a character class.
 #[derive(Debug)]
 enum ClassItem {
+    /// A character may appear in a character class.
     Char(char),
+    /// A range of characters may appear in a character class.
     Range(char, char),
 }
 
+/// An accumulator for building the representation of a character class.
 #[derive(Debug)]
 struct ClassAccumulator {
+    /// Is the class negated (i.e. was `^` the first character).
     negated: bool,
+    /// The characters or ranges in the class, in order of appearance.
     items: Vec<ClassItem>,
 }
 
+/// The current state of the glob pattern parser.
 #[derive(Debug)]
 enum State {
+    /// The next item can be a literal character.
     Literal,
+    /// The next item will signify a character escape, e.g. `\t`, `\n`, etc.
     Escape,
+    /// The next item will be the first character of a class, possibly `^`.
     ClassStart,
+    /// The next item will either be a character or a range, both within a class.
     Class(ClassAccumulator),
+    /// A character class range was completed; check whether the next character is
+    /// a dash.
     ClassRange(ClassAccumulator, char),
+    /// There was a dash following a character range; let's hope this is the end of
+    /// the class definition.
     ClassRangeDash(ClassAccumulator),
+    /// The next item will signify a character escape within a character class.
     ClassEscape(ClassAccumulator),
+    /// We are building a collection of alternatives.
     Alternate(String, Vec<String>),
+    /// The next item will signify a character escape within a collection of alternatives.
     AlternateEscape(String, Vec<String>),
 }
 
+/// Escape a character in a character class if necessary.
+/// This only escapes the backslash itself and the closing bracket.
 fn push_escaped_in_class(res: &mut String, chr: char) {
     if chr == ']' || chr == '\\' {
         res.push('\\');
@@ -117,6 +137,7 @@ fn push_escaped_in_class(res: &mut String, chr: char) {
     res.push(chr);
 }
 
+/// Escape a character outside of a character class if necessary.
 fn push_escaped(res: &mut String, chr: char) {
     if "[{(|^$.*?+\\".contains(chr) {
         res.push('\\');
@@ -124,6 +145,7 @@ fn push_escaped(res: &mut String, chr: char) {
     res.push(chr);
 }
 
+/// Interpret an escaped character: return the one that was meant.
 fn map_letter_escape(chr: char) -> char {
     match chr {
         'a' => '\x07',
@@ -138,10 +160,12 @@ fn map_letter_escape(chr: char) -> char {
     }
 }
 
+/// Unescape a character and escape it if needed.
 fn push_escaped_special(res: &mut String, chr: char) {
     push_escaped(res, map_letter_escape(chr));
 }
 
+/// Exclude the slash character from classes that would include it.
 fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
     assert!(!acc.negated);
     let mut res: Vec<ClassItem> = Vec::new();
@@ -171,6 +195,7 @@ fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
     ClassAccumulator { items: res, ..acc }
 }
 
+/// Make sure a character class will match a slash.
 fn handle_slash_include(acc: ClassAccumulator) -> ClassAccumulator {
     assert!(acc.negated);
     let slash_found = acc.items.iter().any(|item| match item {
@@ -191,6 +216,9 @@ fn handle_slash_include(acc: ClassAccumulator) -> ClassAccumulator {
     }
 }
 
+/// Character classes should never match a slash when used in filenames.
+/// Thus, make sure that a negated character class will include the slash
+/// character and that a non-negated one will not include it.
 fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
     match acc.negated {
         false => handle_slash_exclude(acc),
@@ -198,6 +226,10 @@ fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
     }
 }
 
+/// Convert a glob character class to a regular expression one.
+/// Make sure none of the classes will allow a slash to be matched in
+/// a filename, make sure the dash is at the end of the regular expression
+/// class pattern (e.g. `[A-Za-z0-9-]`), sort the characters and the classes.
 fn close_class(acc: ClassAccumulator) -> String {
     let acc = handle_slash(acc);
     let mut chars_set: HashSet<char> = acc
@@ -246,6 +278,7 @@ fn close_class(acc: ClassAccumulator) -> String {
     res
 }
 
+/// Convert a glob alternatives list to a regular expression pattern.
 fn close_alternate(gathered: Vec<String>) -> String {
     let mut items: Vec<String> = gathered
         .into_iter()

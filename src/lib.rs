@@ -33,6 +33,7 @@
  * SUCH DAMAGE.
  */
 // Activate most of the clippy::restriction lints that we have come across...
+#![warn(clippy::missing_docs_in_private_items)]
 #![warn(clippy::panic)]
 #![warn(clippy::str_to_string)]
 // ...except for these ones.
