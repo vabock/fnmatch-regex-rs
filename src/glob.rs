@@ -143,11 +143,12 @@ impl Default for State {
 
 /// Escape a character in a character class if necessary.
 /// This only escapes the backslash itself and the closing bracket.
-fn push_escaped_in_class(res: &mut String, chr: char) {
+fn escape_in_class(chr: char) -> String {
     if chr == ']' || chr == '\\' {
-        res.push('\\');
+        format!("\\{}", chr)
+    } else {
+        chr.to_string()
     }
-    res.push(chr);
 }
 
 /// Escape a character outside of a character class if necessary.
@@ -300,20 +301,20 @@ fn close_class(glob_acc: ClassAccumulator) -> String {
     chars.sort_unstable();
     classes.sort_unstable();
 
-    let mut res = format!("[{}", if acc.negated { "^" } else { "" });
-    for chr in chars {
-        push_escaped_in_class(&mut res, chr);
-    }
-    for cls in &classes {
-        push_escaped_in_class(&mut res, cls.0);
-        res.push('-');
-        push_escaped_in_class(&mut res, cls.1);
-    }
-    if has_dash {
-        res.push('-');
-    }
-    res.push(']');
-    res
+    format!(
+        "[{}{}{}]",
+        if acc.negated { "^" } else { "" },
+        chars
+            .into_iter()
+            .map(escape_in_class)
+            .chain(classes.into_iter().map(|cls| format!(
+                "{}-{}",
+                escape_in_class(cls.0),
+                escape_in_class(cls.1)
+            )),)
+            .collect::<String>(),
+        if has_dash { "-" } else { "" }
+    )
 }
 
 /// Convert a glob alternatives list to a regular expression pattern.
