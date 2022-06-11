@@ -81,6 +81,7 @@
 
 use std::collections::HashSet;
 use std::mem;
+use std::vec::IntoIter as VecIntoIter;
 
 use regex::Regex;
 
@@ -186,52 +187,39 @@ where
 {
     /// The items to remove slashes from.
     it: I,
-    /// Do we have it? Do we? Do we?
-    saved: Option<ClassItem>,
 }
 
 impl<I> Iterator for ExcIter<I>
 where
     I: Iterator<Item = ClassItem>,
 {
-    type Item = ClassItem;
+    type Item = VecIntoIter<ClassItem>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(value) = self.saved.take() {
-                return Some(value);
+        self.it.next().map(|cls| {
+            match cls {
+                ClassItem::Char('/') => vec![],
+                ClassItem::Char(_) => vec![cls],
+                ClassItem::Range('.', '/') => vec![ClassItem::Char('.')],
+                ClassItem::Range(start, '/') => vec![ClassItem::Range(start, '.')],
+                ClassItem::Range('/', '0') => vec![ClassItem::Char('0')],
+                ClassItem::Range('/', end) => vec![ClassItem::Range('0', end)],
+                ClassItem::Range(start, end) if start > '/' || end < '/' => vec![cls],
+                ClassItem::Range(start, end) => vec![
+                    if start == '.' {
+                        ClassItem::Char('.')
+                    } else {
+                        ClassItem::Range(start, '.')
+                    },
+                    if end == '0' {
+                        ClassItem::Char('0')
+                    } else {
+                        ClassItem::Range('0', end)
+                    },
+                ],
             }
-            match self.it.next() {
-                Some(cls) => {
-                    if let Some(value) = match cls {
-                        ClassItem::Char('/') => None,
-                        ClassItem::Char(_) => Some(cls),
-                        ClassItem::Range('.', '/') => Some(ClassItem::Char('.')),
-                        ClassItem::Range(start, '/') => Some(ClassItem::Range(start, '.')),
-                        ClassItem::Range('/', '0') => Some(ClassItem::Char('0')),
-                        ClassItem::Range('/', end) => Some(ClassItem::Range('0', end)),
-                        ClassItem::Range(start, end) if start > '/' || end < '/' => Some(cls),
-                        ClassItem::Range(start, end) => {
-                            let first = if start == '.' {
-                                ClassItem::Char('.')
-                            } else {
-                                ClassItem::Range(start, '.')
-                            };
-                            let second = if end == '0' {
-                                ClassItem::Char('0')
-                            } else {
-                                ClassItem::Range('0', end)
-                            };
-                            self.saved = Some(second);
-                            Some(first)
-                        }
-                    } {
-                        return Some(value);
-                    }
-                }
-                None => return None,
-            }
-        }
+            .into_iter()
+        })
     }
 }
 
@@ -241,8 +229,8 @@ fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
     ClassAccumulator {
         items: ExcIter {
             it: acc.items.into_iter(),
-            saved: None,
         }
+        .flatten()
         .collect(),
         ..acc
     }
