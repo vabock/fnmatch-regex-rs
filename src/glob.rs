@@ -237,25 +237,17 @@ fn handle_slash_exclude(acc: ClassAccumulator) -> ClassAccumulator {
 }
 
 /// Make sure a character class will match a slash.
-fn handle_slash_include(acc: ClassAccumulator) -> ClassAccumulator {
+fn handle_slash_include(mut acc: ClassAccumulator) -> ClassAccumulator {
     assert!(acc.negated);
     let slash_found = acc.items.iter().any(|item| match *item {
         ClassItem::Char('/') => true,
         ClassItem::Char(_) => false,
         ClassItem::Range(start, end) => start <= '/' && end >= '/',
     });
-    if slash_found {
-        acc
-    } else {
-        ClassAccumulator {
-            items: acc
-                .items
-                .into_iter()
-                .chain(vec![ClassItem::Char('/')].into_iter())
-                .collect(),
-            ..acc
-        }
+    if !slash_found {
+        acc.items.push(ClassItem::Char('/'));
     }
+    acc
 }
 
 /// Character classes should never match a slash when used in filenames.
