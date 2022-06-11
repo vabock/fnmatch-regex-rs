@@ -13,3 +13,6 @@ keywords = ["fnmatch", "glob", "pattern", "regex"]
 [dependencies]
 regex = "1"
 quick-error = "2"
+
+[dev-dependencies]
+rstest = "0.13"

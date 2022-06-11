@@ -30,11 +30,170 @@ use std::error::Error;
 
 use crate::glob as fglob;
 
+#[rstest::rstest]
+#[case(
+    "test_const",
+    "con.st",
+    &["con.st"],
+    &[
+        "conAst",
+        "con!st",
+        "con?st",
+        "a con.st",
+        "con.stant",
+        "a con.stant",
+    ],
+)]
+#[case(
+    "test_wildcards",
+    "this/is/?.test",
+    &[
+        "this/is/a.test",
+        "this/is/b.test",
+        "this/is/?.test",
+        "this/is/*.test",
+    ],
+    &[
+        "this/is/aa.test",
+        "this/is/.test",
+        "this/is/some.test",
+        "this/is/a?.test",
+        "that/is/a.test",
+        "this/is/not/a.test",
+    ],
+)]
+#[case(
+    "test_wildcards",
+    "a?b",
+    &["aab", "a.b", "a?b", "a*b"],
+    &["a/b"],
+)]
+#[case(
+    "test_class_simple",
+    "[0-9]",
+    &["5", "0", "9"],
+    &["50", "", "a", " ", "?", "+", "-", ".", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[!0-9]",
+    &["a", " ", "?", "+", "-", "."],
+    &["5", "0", "9", "50", "", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[ab.-9c]",
+    &["5", "0", "9", ".", "a"],
+    &["50", "ab", "a0", "5b", "", " ", "?", "+", "-", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[ab+-9c]",
+    &["5", "0", "9", ".", "a", "+", "-"],
+    &["50", "ab", "a0", "5b", "", " ", "?", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[ab0-9c-]",
+    &["5", "0", "9", "a", "-"],
+    &["50", "ab", "a0", "5b", "", " ", "+", ".", "?", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[+a-]",
+    &["+", "a", "-"],
+    &[
+        "50", "ab", "a0", "5b", "5", "0", "9", "", " ", ".", "?", "/",
+    ],
+)]
+#[case(
+    "test_class_simple",
+    "[0-9-]",
+    &["-", "5", "0", "9"],
+    &["50", "ab", "a0", "5b", "a", "", " ", ".", "?", "/", "+"],
+)]
+#[case(
+    "test_class_simple",
+    "[]]",
+    &["]"],
+    &["[]", "[[", "]]", "[[]", "[", "", " ", ".", "?", "/", "+"],
+)]
+#[case(
+    "test_class_simple",
+    "[!]]",
+    &["[", " ", ".", "?", "+"],
+    &["[]", "[[", "]]", "[[]", "]", "", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[-a]",
+    &["-", "a"],
+    &["--", "-a", "a-", "aa", " ", ".", "?", "+", "]", "", "/"],
+)]
+#[case(
+    "test_class_simple",
+    "[!-a]",
+    &[" ", ".", "?", "+", "]"],
+    &["--", "-a", "a-", "aa", "", "-", "a", "/"],
+)]
+#[case(
+    "test_alternates",
+    "look at {th?is,that,...*}",
+    &["look at th?is", "look at that", "look at ...*"],
+    &[
+        "look at this",
+        "look at ths",
+        "look at ",
+        "look at that and stuff",
+    ],
+)]
+#[case(
+    "test_alternates",
+    "whee{} whoo",
+    &["whee{} whoo"],
+    &["whee whoo", "whee{ whoo", "whee} whoo"],
+)]
+#[case(
+    "test_escape",
+    r"hello\[\]\$\?\.\{\*\}",
+    &["hello[]$?.{*}"],
+    &["hello", "hello[]", "hello$"],
+)]
+#[case(
+    "test_escape",
+    r"hello\\\b\e\f\n\r\t\v",
+    &["hello\\\x08\x1b\x0c\n\r\t\x0b"],
+    &[r"hello\\\a\b\e\f\n\r\t\v"],
+)]
+#[case(
+    "test_escape",
+    r"hell[o$\$\-\]]",
+    &["hello", "hell$", "hell]", "hell-", "hell$"],
+    &["hell", "hello-", "hell%"],
+)]
+#[case(
+    "test_escape",
+    r"hello{\\,\b,\e,\f,\n,\},\],\$,\r,\t,\v}whee",
+    &[
+        "hello\\whee",
+        "hello\x08whee",
+        "hello\x1bwhee",
+        "hello\x0cwhee",
+        "hello\nwhee",
+        "hello\rwhee",
+        "hello\twhee",
+        "hello\x0bwhee",
+        "hello}whee",
+        "hello]whee",
+        "hello$whee",
+    ],
+    &["hello", "hellowhee", "hello whee", "hello?whee"],
+)]
 fn test_pattern(
-    test_name: &str,
-    pattern: &str,
-    expect_ok: &[&str],
-    expect_fail: &[&str],
+    #[case] test_name: &str,
+    #[case] pattern: &str,
+    #[case] expect_ok: &[&str],
+    #[case] expect_fail: &[&str],
 ) -> Result<(), Box<dyn Error>> {
     let re = fglob::glob_to_regex(pattern)?;
     println!("{}: {} -> {}", test_name, pattern, re);
@@ -48,209 +207,6 @@ fn test_pattern(
         println!("- {} should not match", item);
         assert!(!re.is_match(item));
     }
-
-    Ok(())
-}
-
-#[test]
-pub fn test_const() -> Result<(), Box<dyn Error>> {
-    test_pattern(
-        "test_const",
-        "con.st",
-        &["con.st"],
-        &[
-            "conAst",
-            "con!st",
-            "con?st",
-            "a con.st",
-            "con.stant",
-            "a con.stant",
-        ],
-    )?;
-
-    Ok(())
-}
-
-#[test]
-pub fn test_wildcards() -> Result<(), Box<dyn Error>> {
-    test_pattern(
-        "test_wildcards",
-        "this/is/?.test",
-        &[
-            "this/is/a.test",
-            "this/is/b.test",
-            "this/is/?.test",
-            "this/is/*.test",
-        ],
-        &[
-            "this/is/aa.test",
-            "this/is/.test",
-            "this/is/some.test",
-            "this/is/a?.test",
-            "that/is/a.test",
-            "this/is/not/a.test",
-        ],
-    )?;
-
-    test_pattern(
-        "test_wildcards",
-        "a?b",
-        &["aab", "a.b", "a?b", "a*b"],
-        &["a/b"],
-    )?;
-
-    Ok(())
-}
-
-#[test]
-pub fn test_class_simple() -> Result<(), Box<dyn Error>> {
-    test_pattern(
-        "test_class_simple",
-        "[0-9]",
-        &["5", "0", "9"],
-        &["50", "", "a", " ", "?", "+", "-", ".", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[!0-9]",
-        &["a", " ", "?", "+", "-", "."],
-        &["5", "0", "9", "50", "", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[ab.-9c]",
-        &["5", "0", "9", ".", "a"],
-        &["50", "ab", "a0", "5b", "", " ", "?", "+", "-", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[ab+-9c]",
-        &["5", "0", "9", ".", "a", "+", "-"],
-        &["50", "ab", "a0", "5b", "", " ", "?", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[ab0-9c-]",
-        &["5", "0", "9", "a", "-"],
-        &["50", "ab", "a0", "5b", "", " ", "+", ".", "?", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[+a-]",
-        &["+", "a", "-"],
-        &[
-            "50", "ab", "a0", "5b", "5", "0", "9", "", " ", ".", "?", "/",
-        ],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[0-9-]",
-        &["-", "5", "0", "9"],
-        &["50", "ab", "a0", "5b", "a", "", " ", ".", "?", "/", "+"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[]]",
-        &["]"],
-        &["[]", "[[", "]]", "[[]", "[", "", " ", ".", "?", "/", "+"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[!]]",
-        &["[", " ", ".", "?", "+"],
-        &["[]", "[[", "]]", "[[]", "]", "", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[-a]",
-        &["-", "a"],
-        &["--", "-a", "a-", "aa", " ", ".", "?", "+", "]", "", "/"],
-    )?;
-
-    test_pattern(
-        "test_class_simple",
-        "[!-a]",
-        &[" ", ".", "?", "+", "]"],
-        &["--", "-a", "a-", "aa", "", "-", "a", "/"],
-    )?;
-
-    Ok(())
-}
-
-#[test]
-pub fn test_alternates() -> Result<(), Box<dyn Error>> {
-    test_pattern(
-        "test_alternates",
-        "look at {th?is,that,...*}",
-        &["look at th?is", "look at that", "look at ...*"],
-        &[
-            "look at this",
-            "look at ths",
-            "look at ",
-            "look at that and stuff",
-        ],
-    )?;
-
-    test_pattern(
-        "test_alternates",
-        "whee{} whoo",
-        &["whee{} whoo"],
-        &["whee whoo", "whee{ whoo", "whee} whoo"],
-    )?;
-
-    Ok(())
-}
-
-#[test]
-pub fn test_escape() -> Result<(), Box<dyn Error>> {
-    test_pattern(
-        "test_escape",
-        r"hello\[\]\$\?\.\{\*\}",
-        &["hello[]$?.{*}"],
-        &["hello", "hello[]", "hello$"],
-    )?;
-
-    test_pattern(
-        "test_escape",
-        r"hello\\\b\e\f\n\r\t\v",
-        &["hello\\\x08\x1b\x0c\n\r\t\x0b"],
-        &[r"hello\\\a\b\e\f\n\r\t\v"],
-    )?;
-
-    test_pattern(
-        "test_escape",
-        r"hell[o$\$\-\]]",
-        &["hello", "hell$", "hell]", "hell-", "hell$"],
-        &["hell", "hello-", "hell%"],
-    )?;
-
-    test_pattern(
-        "test_escape",
-        r"hello{\\,\b,\e,\f,\n,\},\],\$,\r,\t,\v}whee",
-        &[
-            "hello\\whee",
-            "hello\x08whee",
-            "hello\x1bwhee",
-            "hello\x0cwhee",
-            "hello\nwhee",
-            "hello\rwhee",
-            "hello\twhee",
-            "hello\x0bwhee",
-            "hello}whee",
-            "hello]whee",
-            "hello$whee",
-        ],
-        &["hello", "hellowhee", "hello whee", "hello?whee"],
-    )?;
 
     Ok(())
 }
