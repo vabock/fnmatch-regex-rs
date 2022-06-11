@@ -17,6 +17,8 @@
 - Add the `categories` and `keywords` Cargo package attributes.
 - Use the rstest library for data-driven testing instead of doing it
   by ourselves.
+- Use the itertools library to simplify some operations a whole lot.
+  Thanks again to Kevin Reid for pointing it out to me!
 
 ## 0.1.0 (2021-06-22)
 
