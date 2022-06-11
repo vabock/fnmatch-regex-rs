@@ -1,6 +1,6 @@
 # Change log for the fnmatch-regex crate
 
-## 0.2.0 (not yet)
+## 0.2.0 (2022-06-11)
 
 - INCOMPATIBLE change: the `fnmatch_regex::error::Error` class is now
   an enum that uses the quick-error library, not our own hand-rolled
