@@ -79,10 +79,10 @@
  * SUCH DAMAGE.
  */
 
-use std::collections::HashSet;
 use std::mem;
 use std::vec::IntoIter as VecIntoIter;
 
+use itertools::{Either, Itertools};
 use regex::Regex;
 
 use crate::error::Error as FError;
@@ -267,57 +267,54 @@ fn handle_slash(acc: ClassAccumulator) -> ClassAccumulator {
 /// class pattern (e.g. `[A-Za-z0-9-]`), sort the characters and the classes.
 fn close_class(glob_acc: ClassAccumulator) -> String {
     let acc = handle_slash(glob_acc);
-    let mut chars_set: HashSet<char> = acc
-        .items
-        .iter()
-        .filter_map(|item| match *item {
-            ClassItem::Char(chr) => Some(chr),
-            ClassItem::Range(_, _) => None,
-        })
-        .collect();
-    let has_dash = chars_set.remove(&'-');
-    let mut chars: Vec<char> = chars_set.into_iter().collect();
-    let mut classes: Vec<(char, char)> = acc
-        .items
-        .iter()
-        .filter_map(|item| match *item {
-            ClassItem::Char(_) => None,
-            ClassItem::Range(start, end) => Some((start, end)),
-        })
-        .collect::<HashSet<(char, char)>>()
-        .into_iter()
-        .collect();
+    let (chars_vec, classes_vec): (Vec<_>, Vec<_>) =
+        acc.items.into_iter().partition_map(|item| match item {
+            ClassItem::Char(chr) => Either::Left(chr),
+            ClassItem::Range(start, end) => Either::Right((start, end)),
+        });
 
-    chars.sort_unstable();
-    classes.sort_unstable();
+    let (chars, final_dash) = {
+        let mut has_dash = false;
+        let res = chars_vec
+            .into_iter()
+            .filter(|chr| {
+                if *chr == '-' {
+                    has_dash = true;
+                    false
+                } else {
+                    true
+                }
+            })
+            .sorted_unstable()
+            .dedup()
+            .map(escape_in_class);
+        (res, if has_dash { "-" } else { "" })
+    };
+
+    let classes = classes_vec
+        .into_iter()
+        .sorted_unstable()
+        .dedup()
+        .map(|cls| format!("{}-{}", escape_in_class(cls.0), escape_in_class(cls.1)));
 
     format!(
         "[{}{}{}]",
         if acc.negated { "^" } else { "" },
-        chars
-            .into_iter()
-            .map(escape_in_class)
-            .chain(classes.into_iter().map(|cls| format!(
-                "{}-{}",
-                escape_in_class(cls.0),
-                escape_in_class(cls.1)
-            )),)
-            .collect::<String>(),
-        if has_dash { "-" } else { "" }
+        chars.chain(classes).collect::<String>(),
+        final_dash,
     )
 }
 
 /// Convert a glob alternatives list to a regular expression pattern.
 fn close_alternate(gathered: Vec<String>) -> String {
-    let mut items: Vec<String> = gathered
+    let items = gathered
         .into_iter()
-        .collect::<HashSet<String>>()
-        .into_iter()
-        .map(|item| item.chars().map(escape).collect())
-        .collect();
-    items.sort_unstable();
+        .map(|item| item.chars().map(escape).collect::<String>())
+        .sorted_unstable()
+        .dedup()
+        .join("|");
 
-    format!("({})", items.join("|"))
+    format!("({})", items)
 }
 
 /// Iterate over a glob pattern's characters, build up a regular expression.
@@ -605,9 +602,6 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
         pattern: pattern.chars(),
         state: State::Start,
     };
-    let re_pattern = parser
-        .filter_map(Result::transpose)
-        .collect::<Result<Vec<_>, _>>()?
-        .join("");
+    let re_pattern = parser.flatten_ok().collect::<Result<Vec<_>, _>>()?.join("");
     Regex::new(&re_pattern).map_err(|err| FError::InvalidRegex(re_pattern, err.to_string()))
 }
