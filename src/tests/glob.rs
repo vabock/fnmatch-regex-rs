@@ -26,8 +26,7 @@
  * SUCH DAMAGE.
  */
 
-use std::error::Error;
-
+use crate::error::Error as FError;
 use crate::glob as fglob;
 
 #[rstest::rstest]
@@ -194,7 +193,7 @@ fn test_pattern(
     #[case] pattern: &str,
     #[case] expect_ok: &[&str],
     #[case] expect_fail: &[&str],
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), FError> {
     let re = fglob::glob_to_regex(pattern)?;
     println!("{}: {} -> {}", test_name, pattern, re);
 
