@@ -197,31 +197,41 @@ where
     type Item = ClassItem;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.saved.take().or_else(|| {
-            self.it.next().and_then(|cls| match cls {
-                ClassItem::Char('/') => self.next(),
-                ClassItem::Char(_) => Some(cls),
-                ClassItem::Range('.', '/') => Some(ClassItem::Char('.')),
-                ClassItem::Range(start, '/') => Some(ClassItem::Range(start, '.')),
-                ClassItem::Range('/', '0') => Some(ClassItem::Char('0')),
-                ClassItem::Range('/', end) => Some(ClassItem::Range('0', end)),
-                ClassItem::Range(start, end) if start > '/' || end < '/' => Some(cls),
-                ClassItem::Range(start, end) => {
-                    let first = if start == '.' {
-                        ClassItem::Char('.')
-                    } else {
-                        ClassItem::Range(start, '.')
-                    };
-                    let second = if end == '0' {
-                        ClassItem::Char('0')
-                    } else {
-                        ClassItem::Range('0', end)
-                    };
-                    self.saved = Some(second);
-                    Some(first)
+        loop {
+            if let Some(value) = self.saved.take() {
+                return Some(value);
+            }
+            match self.it.next() {
+                Some(cls) => {
+                    if let Some(value) = match cls {
+                        ClassItem::Char('/') => None,
+                        ClassItem::Char(_) => Some(cls),
+                        ClassItem::Range('.', '/') => Some(ClassItem::Char('.')),
+                        ClassItem::Range(start, '/') => Some(ClassItem::Range(start, '.')),
+                        ClassItem::Range('/', '0') => Some(ClassItem::Char('0')),
+                        ClassItem::Range('/', end) => Some(ClassItem::Range('0', end)),
+                        ClassItem::Range(start, end) if start > '/' || end < '/' => Some(cls),
+                        ClassItem::Range(start, end) => {
+                            let first = if start == '.' {
+                                ClassItem::Char('.')
+                            } else {
+                                ClassItem::Range(start, '.')
+                            };
+                            let second = if end == '0' {
+                                ClassItem::Char('0')
+                            } else {
+                                ClassItem::Range('0', end)
+                            };
+                            self.saved = Some(second);
+                            Some(first)
+                        }
+                    } {
+                        return Some(value);
+                    }
                 }
-            })
-        })
+                None => return None,
+            }
+        }
     }
 }
 
@@ -580,7 +590,7 @@ impl<I> Iterator for GlobIterator<I>
 where
     I: Iterator<Item = char>,
 {
-    type Item = Result<String, FError>;
+    type Item = StringResult;
 
     fn next(&mut self) -> Option<Self::Item> {
         match mem::take(&mut self.state) {
@@ -598,13 +608,6 @@ where
                 Some(self.handle_alternate_escape(current, gathered))
             }
         }
-        .and_then(|res| match res {
-            Ok(opt) => match opt {
-                Some(value) => Some(Ok(value)),
-                None => self.next(),
-            },
-            Err(err) => Some(Err(err)),
-        })
     }
 }
 
@@ -622,6 +625,9 @@ pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
         pattern: pattern.chars(),
         state: State::Start,
     };
-    let re_pattern = parser.collect::<Result<Vec<_>, _>>()?.join("");
+    let re_pattern = parser
+        .filter_map(Result::transpose)
+        .collect::<Result<Vec<_>, _>>()?
+        .join("");
     Regex::new(&re_pattern).map_err(|err| FError::InvalidRegex(re_pattern, err.to_string()))
 }
