@@ -60,7 +60,9 @@
 pub mod error;
 pub mod glob;
 
+#[cfg(feature = "regex")]
 pub use glob::glob_to_regex;
+pub use glob::glob_to_regex_string;
 
 #[cfg(test)]
 pub mod tests;

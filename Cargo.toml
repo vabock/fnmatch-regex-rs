@@ -12,8 +12,12 @@ keywords = ["fnmatch", "glob", "pattern", "regex"]
 
 [dependencies]
 itertools = "0.10"
-regex = "1"
+regex = { version = "1", optional = true }
 quick-error = "2"
+
+[features]
+default = ["regex"]
+regex = ["dep:regex"]
 
 [dev-dependencies]
 rstest = "0.13"

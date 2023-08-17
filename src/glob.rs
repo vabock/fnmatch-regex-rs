@@ -83,6 +83,7 @@ use std::mem;
 use std::vec::IntoIter as VecIntoIter;
 
 use itertools::{Either, Itertools};
+#[cfg(feature = "regex")]
 use regex::Regex;
 
 use crate::error::Error as FError;
@@ -588,6 +589,22 @@ where
     }
 }
 
+/// Parse a shell glob-like pattern into a regular expression pattern string.
+///
+/// See the module-level documentation for a description of the pattern
+/// features supported.
+///
+/// # Errors
+/// Most of the [`crate::error::Error`] values, mostly syntax errors in
+/// the specified glob pattern.
+pub fn glob_to_regex_string(pattern: &str) -> Result<String, FError> {
+    let parser = GlobIterator {
+        pattern: pattern.chars(),
+        state: State::Start,
+    };
+    Ok(parser.flatten_ok().collect::<Result<Vec<_>, _>>()?.join(""))
+}
+
 /// Parse a shell glob-like pattern into a regular expression.
 ///
 /// See the module-level documentation for a description of the pattern
@@ -597,11 +614,8 @@ where
 /// Most of the [`crate::error::Error`] values, mostly syntax errors in
 /// the specified glob pattern.
 #[allow(clippy::missing_inline_in_public_items)]
+#[cfg(feature = "regex")]
 pub fn glob_to_regex(pattern: &str) -> Result<Regex, FError> {
-    let parser = GlobIterator {
-        pattern: pattern.chars(),
-        state: State::Start,
-    };
-    let re_pattern = parser.flatten_ok().collect::<Result<Vec<_>, _>>()?.join("");
+    let re_pattern = glob_to_regex_string(pattern)?;
     Regex::new(&re_pattern).map_err(|err| FError::InvalidRegex(re_pattern, err.to_string()))
 }
